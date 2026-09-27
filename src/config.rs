@@ -76,6 +76,7 @@ pub(crate) fn config_diagnostic_summary_without_keybindings(
 pub const DEFAULT_SCROLLBACK_LIMIT_BYTES: usize = 10_000_000;
 pub const DEFAULT_MOUSE_SCROLL_LINES: usize = 3;
 pub const DEFAULT_MOBILE_WIDTH_THRESHOLD: u16 = 64;
+pub const DEFAULT_SIDEBAR_AGENTS_SHARE: f32 = 0.5;
 pub const DEFAULT_HEADLESS_COLS: u16 = 120;
 pub const DEFAULT_HEADLESS_ROWS: u16 = 40;
 
@@ -122,6 +123,7 @@ impl Config {
             .chain(tab_bar_right_diagnostics(&self.ui.tab_bar_right))
             .chain(window_title_diagnostics(&self.ui.window_title))
             .chain(self.invalid_sidebar_bounds_diagnostic())
+            .chain(self.ui.sidebar_agents_share_diagnostic())
             .chain(self.invalid_headless_size_diagnostic())
             .collect()
     }

@@ -294,6 +294,79 @@ fn client_owned_sidebar_dividers_resize_live() {
     assert!(!split.resize);
 }
 
+fn spaces_and_agents_heights(state: &ClientShellState) -> (u16, u16) {
+    let (spaces, agents) = crate::ui::expanded_sidebar_sections(
+        ratatui::layout::Rect::new(0, 0, 27, 40),
+        state.sidebar_section_split,
+    );
+    (spaces.height, agents.height)
+}
+
+fn config_with_agents_share(share: f32) -> Config {
+    let mut config = Config::default();
+    config.ui.sidebar_agents_share = share;
+    config
+}
+
+#[test]
+fn sidebar_split_defaults_to_even_spaces_and_agents() {
+    let state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+
+    assert_eq!(spaces_and_agents_heights(&state), (20, 20));
+}
+
+#[test]
+fn configured_agents_share_sets_sidebar_split() {
+    let state = ClientShellState::new(ClientShellConfig::from_config(&config_with_agents_share(
+        0.75,
+    )));
+
+    assert_eq!(spaces_and_agents_heights(&state), (10, 30));
+    assert!(!state.sidebar_section_split_manual);
+}
+
+#[test]
+fn dragged_sidebar_split_overrides_configured_agents_share() {
+    let mut config = ClientShellConfig::from_config(&config_with_agents_share(0.75));
+    config.preferences.sidebar_section_split = Some(0.4);
+    let state = ClientShellState::new(config);
+
+    assert_eq!(spaces_and_agents_heights(&state), (16, 24));
+}
+
+#[test]
+fn config_reload_applies_agents_share_unless_split_was_dragged() {
+    let _guard = crate::config::test_config_env_lock().lock().unwrap();
+    let path = std::env::temp_dir().join(format!(
+        "herdr-client-shell-agents-share-{}.toml",
+        std::process::id()
+    ));
+    let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+    std::env::set_var(crate::config::CONFIG_PATH_ENV_VAR, &path);
+
+    std::fs::write(&path, "[ui]\nsidebar_agents_share = 0.75\n").unwrap();
+    state.reload_client_config();
+    let follows_config = spaces_and_agents_heights(&state);
+
+    std::fs::write(&path, "[ui]\nsidebar_agents_share = 1.5\n").unwrap();
+    state.reload_client_config();
+    let invalid_keeps_default = spaces_and_agents_heights(&state);
+    let invalid_diagnostic = state.local_config_diagnostic.clone();
+
+    state.sidebar_section_split = 0.4;
+    state.sidebar_section_split_manual = true;
+    std::fs::write(&path, "[ui]\nsidebar_agents_share = 0.3\n").unwrap();
+    state.reload_client_config();
+    let keeps_drag = spaces_and_agents_heights(&state);
+
+    std::env::remove_var(crate::config::CONFIG_PATH_ENV_VAR);
+    let _ = std::fs::remove_file(&path);
+    assert_eq!(follows_config, (10, 30));
+    assert_eq!(invalid_keeps_default, (20, 20));
+    assert!(invalid_diagnostic.is_some());
+    assert_eq!(keeps_drag, (16, 24));
+}
+
 #[test]
 fn context_menus_capture_stable_targets_and_route_actions() {
     let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));

@@ -86,6 +86,9 @@ impl ClientShellState {
                 if !self.sidebar_width_manual {
                     self.sidebar_width = self.config.sidebar_width;
                 }
+                if !self.sidebar_section_split_manual {
+                    self.sidebar_section_split = self.config.default_sidebar_section_split();
+                }
                 if self.agent_panel_sort_manual {
                     self.config.agent_panel_sort = agent_panel_sort;
                 }
@@ -118,6 +121,7 @@ impl ClientShellConfig {
             sidebar_max_width: config.ui.sidebar_max_width,
             sidebar_start_collapsed: config.ui.sidebar_start_collapsed,
             sidebar_collapsed_mode: config.ui.sidebar_collapsed_mode,
+            sidebar_agents_share: config.ui.sidebar_agents_share(),
             mobile_width_threshold: config.ui.mobile_width_threshold,
             tab_bar_position: config.ui.tab_bar_position,
             hide_tab_bar_when_single_tab: config.ui.hide_tab_bar_when_single_tab,
@@ -316,10 +320,12 @@ impl ClientShellConfig {
             } else {
                 let ui = &config.ui;
                 diagnostics.extend(ui.sound.diagnostics());
+                diagnostics.extend(ui.sidebar_agents_share_diagnostic());
                 self.sidebar_width = ui.sidebar_width;
                 self.sidebar_min_width = ui.sidebar_min_width;
                 self.sidebar_max_width = ui.sidebar_max_width;
                 self.sidebar_collapsed_mode = ui.sidebar_collapsed_mode;
+                self.sidebar_agents_share = ui.sidebar_agents_share();
                 self.mobile_width_threshold = ui.mobile_width_threshold;
                 self.tab_bar_position = ui.tab_bar_position;
                 self.hide_tab_bar_when_single_tab = ui.hide_tab_bar_when_single_tab;
@@ -355,6 +361,11 @@ impl ClientShellConfig {
         }
 
         diagnostics
+    }
+
+    /// Spaces fraction of the expanded sidebar height implied by `ui.sidebar_agents_share`.
+    pub(super) fn default_sidebar_section_split(&self) -> f32 {
+        1.0 - self.sidebar_agents_share
     }
 
     pub(super) fn layout(

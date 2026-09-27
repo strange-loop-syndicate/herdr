@@ -245,6 +245,10 @@ const DEFAULT_CONFIG: &str = r##"# herdr configuration
 # Collapsed sidebar presentation: "compact" keeps the narrow status rail, "hidden" uses zero width.
 # sidebar_collapsed_mode = "compact"
 
+# Fraction of the expanded sidebar height given to the Agents panel (0.2 to 0.9).
+# A divider position you drag with the mouse is saved per client and takes precedence.
+# sidebar_agents_share = 0.5
+
 # Terminal width at or below which Herdr uses the mobile single-column layout.
 # Increase this for foldables, tablets, or wide phone terminals.
 # mobile_width_threshold = 64
@@ -810,6 +814,20 @@ mod tests {
         let sidebar = DEFAULT_CONFIG.find("# [ui.sidebar.agents]").unwrap();
 
         assert!(accent < sidebar);
+    }
+
+    #[test]
+    fn default_config_documents_sidebar_agents_share_default() {
+        let marker = "# sidebar_agents_share = ";
+        assert_eq!(DEFAULT_CONFIG.matches(marker).count(), 1);
+
+        let start = DEFAULT_CONFIG.find(marker).unwrap() + 2;
+        let line = DEFAULT_CONFIG[start..].lines().next().unwrap();
+        let config: config::Config = toml::from_str(&format!("[ui]\n{line}\n")).unwrap();
+        assert_eq!(
+            config.ui.sidebar_agents_share(),
+            config::Config::default().ui.sidebar_agents_share()
+        );
     }
 
     #[test]

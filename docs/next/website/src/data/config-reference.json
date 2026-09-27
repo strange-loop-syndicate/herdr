@@ -894,6 +894,12 @@
           ]
         },
         {
+          "key": "ui.sidebar_agents_share",
+          "type": "number",
+          "default": "0.5",
+          "description": "Fraction of the expanded sidebar height given to the Agents panel, from 0.2 to 0.9. Out-of-range values report a config diagnostic and use 0.5. A divider position dragged with the mouse is saved per client and takes precedence over this value."
+        },
+        {
           "key": "ui.mobile_width_threshold",
           "type": "integer",
           "default": "64",

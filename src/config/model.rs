@@ -6,10 +6,11 @@ use serde::{de, Deserialize, Deserializer, Serialize};
 use super::{
     ActionKeybinds, BindingConfig, CommandKeybindConfig, IndexedKeybind, Keybinds, SidebarConfig,
     SoundConfig, TabBarRightEntryConfig, ThemeConfig, DEFAULT_MOBILE_WIDTH_THRESHOLD,
-    DEFAULT_MOUSE_SCROLL_LINES, DEFAULT_SCROLLBACK_LIMIT_BYTES,
+    DEFAULT_MOUSE_SCROLL_LINES, DEFAULT_SCROLLBACK_LIMIT_BYTES, DEFAULT_SIDEBAR_AGENTS_SHARE,
 };
 
 pub const MAX_TOAST_DELAY_SECONDS: u64 = 3600;
+pub const SIDEBAR_AGENTS_SHARE_RANGE: std::ops::RangeInclusive<f32> = 0.2..=0.9;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, Default)]
 #[serde(rename_all = "lowercase")]
@@ -917,6 +918,8 @@ pub struct UiConfig {
     pub sidebar_start_collapsed: bool,
     /// Collapsed sidebar presentation. Default: compact.
     pub sidebar_collapsed_mode: SidebarCollapsedModeConfig,
+    /// Fraction of the expanded sidebar height given to the Agents panel, 0.2 to 0.9. Default: 0.5.
+    pub sidebar_agents_share: f32,
     /// Terminal width at or below which Herdr uses the mobile single-column layout. Default: 64.
     pub mobile_width_threshold: u16,
     /// Capture mouse input for Herdr's mouse UI. Default: true.
@@ -1171,6 +1174,7 @@ impl Default for UiConfig {
             sidebar_max_width: 36,
             sidebar_start_collapsed: false,
             sidebar_collapsed_mode: SidebarCollapsedModeConfig::Compact,
+            sidebar_agents_share: DEFAULT_SIDEBAR_AGENTS_SHARE,
             mobile_width_threshold: DEFAULT_MOBILE_WIDTH_THRESHOLD,
             mouse_capture: true,
             copy_on_select: true,
@@ -1211,6 +1215,25 @@ impl UiConfig {
 
     pub fn right_click_passthrough_modifiers(&self) -> Option<KeyModifiers> {
         self.right_click_passthrough_modifier.modifiers()
+    }
+
+    pub fn sidebar_agents_share(&self) -> f32 {
+        if SIDEBAR_AGENTS_SHARE_RANGE.contains(&self.sidebar_agents_share) {
+            self.sidebar_agents_share
+        } else {
+            DEFAULT_SIDEBAR_AGENTS_SHARE
+        }
+    }
+
+    pub fn sidebar_agents_share_diagnostic(&self) -> Option<String> {
+        (!SIDEBAR_AGENTS_SHARE_RANGE.contains(&self.sidebar_agents_share)).then(|| {
+            format!(
+                "ui.sidebar_agents_share must be between {} and {} (got {}); using default {DEFAULT_SIDEBAR_AGENTS_SHARE}",
+                SIDEBAR_AGENTS_SHARE_RANGE.start(),
+                SIDEBAR_AGENTS_SHARE_RANGE.end(),
+                self.sidebar_agents_share
+            )
+        })
     }
 }
 
@@ -1657,6 +1680,42 @@ mobile_width_threshold = 96
         assert_eq!(config.ui.sidebar_min_width, 12);
         assert_eq!(config.ui.sidebar_max_width, 80);
         assert_eq!(config.ui.mobile_width_threshold, 96);
+    }
+
+    #[test]
+    fn sidebar_agents_share_defaults_to_even_split_and_parses() {
+        assert_eq!(Config::default().ui.sidebar_agents_share(), 0.5);
+
+        for (raw, expected) in [("0.75", 0.75), ("0.2", 0.2), ("0.9", 0.9)] {
+            let config: Config =
+                toml::from_str(&format!("[ui]\nsidebar_agents_share = {raw}\n")).unwrap();
+            assert_eq!(config.ui.sidebar_agents_share(), expected, "{raw}");
+            assert!(config.collect_diagnostics().is_empty(), "{raw}");
+        }
+    }
+
+    #[test]
+    fn sidebar_agents_share_out_of_range_reports_diagnostic_and_keeps_default() {
+        for raw in ["1.5", "0.1", "1", "nan"] {
+            let config: Config =
+                toml::from_str(&format!("[ui]\nsidebar_agents_share = {raw}\n")).unwrap();
+            assert_eq!(config.ui.sidebar_agents_share(), 0.5, "{raw}");
+            let diagnostics = config.collect_diagnostics();
+            assert!(
+                diagnostics.iter().any(|diagnostic| diagnostic
+                    .contains("ui.sidebar_agents_share must be between 0.2 and 0.9")),
+                "{raw}: {diagnostics:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn sidebar_agents_share_rejects_non_numeric_values() {
+        let error = toml::from_str::<Config>("[ui]\nsidebar_agents_share = \"wide\"\n")
+            .unwrap_err()
+            .to_string();
+
+        assert!(error.contains("sidebar_agents_share"), "{error}");
     }
 
     #[test]

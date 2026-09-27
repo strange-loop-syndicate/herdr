@@ -18,6 +18,7 @@ pub(crate) struct ClientShellConfig {
     pub(super) sidebar_max_width: u16,
     pub(super) sidebar_start_collapsed: bool,
     pub(super) sidebar_collapsed_mode: SidebarCollapsedModeConfig,
+    pub(super) sidebar_agents_share: f32,
     pub(super) mobile_width_threshold: u16,
     pub(super) tab_bar_position: TabBarPositionConfig,
     pub(super) hide_tab_bar_when_single_tab: bool,
@@ -993,7 +994,7 @@ impl ClientShellState {
             .sidebar_section_split
             .filter(|split| split.is_finite())
             .map(|split| split.clamp(0.1, 0.9))
-            .unwrap_or(0.5);
+            .unwrap_or_else(|| config.default_sidebar_section_split());
         if let Some(sort) = preferences.agent_panel_sort {
             config.agent_panel_sort = sort;
         }
